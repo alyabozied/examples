@@ -27,6 +27,7 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.widget.Toast;
@@ -202,7 +203,11 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
               final RectF location = result.getLocation();
               if (location != null && result.getConfidence() >= minimumConfidence) {
                 canvas.drawRect(location, paint);
-
+                Log.d("top",location.top+"");
+                Log.d("bottom",+location.bottom+"");
+                Log.d("left",location.left+"");
+                Log.d("right",""+location.right);
+                Log.i("class",result.getTitle());
                 cropToFrameTransform.mapRect(location);
 
                 result.setLocation(location);
