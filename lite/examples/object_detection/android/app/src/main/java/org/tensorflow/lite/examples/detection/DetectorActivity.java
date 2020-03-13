@@ -30,6 +30,8 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
 import java.util.LinkedList;
@@ -42,6 +44,9 @@ import org.tensorflow.lite.examples.detection.env.Logger;
 import org.tensorflow.lite.examples.detection.tflite.Classifier;
 import org.tensorflow.lite.examples.detection.tflite.TFLiteObjectDetectionAPIModel;
 import org.tensorflow.lite.examples.detection.tracking.MultiBoxTracker;
+import org.tensorflow.lite.examples.detection.box;
+
+import static java.lang.Math.abs;
 
 /**
  * An activity that uses a TensorFlowMultiBoxDetector and ObjectTracker to detect and then track
@@ -49,7 +54,9 @@ import org.tensorflow.lite.examples.detection.tracking.MultiBoxTracker;
  */
 public class DetectorActivity extends CameraActivity implements OnImageAvailableListener {
   private static final Logger LOGGER = new Logger();
-
+  private final box rightbox=new  box(300,200,300,200);
+  private final box middlebox=new box(200,100,200,100);
+  private final box leftbox=new box(100,0,100,0);
   // Configuration values for the prepackaged SSD model.
   private static final int TF_OD_API_INPUT_SIZE = 300;
   private static final boolean TF_OD_API_IS_QUANTIZED = true;
@@ -188,30 +195,38 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             paint.setColor(Color.RED);
             paint.setStyle(Style.STROKE);
             paint.setStrokeWidth(2.0f);
-
             float minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
             switch (MODE) {
               case TF_OD_API:
                 minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
                 break;
             }
+            TextView dirction=findViewById(R.id.dirction_info);
 
             final List<Classifier.Recognition> mappedRecognitions =
                 new LinkedList<Classifier.Recognition>();
-
+            double maxarea= 0;
+            String maxareaclass="";
+            box currentbox=new box(0,0,0,0);
             for (final Classifier.Recognition result : results) {
               final RectF location = result.getLocation();
               if (location != null && result.getConfidence() >= minimumConfidence) {
                 canvas.drawRect(location, paint);
-                Log.d("top",location.top+"");
-                Log.d("bottom",+location.bottom+"");
-                Log.d("left",location.left+"");
-                Log.d("right",""+location.right);
-                Log.i("class",result.getTitle());
+                logLocationToConsole(result, location);
+                double currentarea=calculatearea(location.top,location.bottom,location.left,location.right);
+                if(maxarea<currentarea)
+                {
+                  maxarea=currentarea;
+                  currentbox=new box(location.left,location.right,location.top,location.bottom);
+                  maxareaclass=result.getTitle();
+                }
                 cropToFrameTransform.mapRect(location);
-
                 result.setLocation(location);
                 mappedRecognitions.add(result);
+              }
+              if(maxarea!=0){
+
+                setDirection(dirction, maxareaclass, currentbox);
               }
             }
 
@@ -231,6 +246,31 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                 });
           }
         });
+  }
+
+  private void logLocationToConsole(Classifier.Recognition result, RectF location) {
+    Log.d("top",location.top+"");
+    Log.d("bottom",+location.bottom+"");
+    Log.d("left",location.left+"");
+    Log.d("right",""+location.right);
+    Log.i("class",result.getTitle());
+  }
+
+  private void setDirection(TextView dirction, String maxareaclass, box currentbox) {
+    double right_iou  =rightbox.iou(currentbox);
+    double middle_iou =middlebox.iou(currentbox);
+    double left_iou =leftbox.iou(currentbox);
+    LOGGER.d(maxareaclass);
+    if(middle_iou>left_iou&&middle_iou>right_iou){
+      dirction.setText("go ahead");
+    }
+    if(right_iou>left_iou&&right_iou>middle_iou){
+      dirction.setText("go left");
+    }
+    if(left_iou>middle_iou&&left_iou>right_iou) {
+
+      dirction.setText("go right");
+    }
   }
 
   @Override
@@ -258,4 +298,8 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   protected void setNumThreads(final int numThreads) {
     runInBackground(() -> detector.setNumThreads(numThreads));
   }
+  private double calculatearea(double top,double bottom,double left,double right){
+    return abs((left-right)*(top-bottom));
+  }
+
 }
